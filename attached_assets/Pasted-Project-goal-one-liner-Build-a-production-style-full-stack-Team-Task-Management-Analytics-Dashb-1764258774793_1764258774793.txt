@@ -1,0 +1,279 @@
+Project goal (one-liner)
+
+Build a production-style full-stack Team Task Management & Analytics Dashboard: responsive Kanban task board + analytics dashboard, JWT auth, real-time updates, visual charts, clean UI, and easy deployment. Must be front-end + backend + SQL DB and include README + screenshots/video.
+
+Tech stack (recommended — use these)
+
+Frontend: React (Vite or Create React App) + Tailwind CSS + React Router
+
+Backend: Node.js + Express
+
+Database / ORM: SQLite for Replit/dev (switchable to PostgreSQL in prod) + Prisma ORM
+
+Realtime: Socket.io (optional realtime bonus)
+
+Charts: Chart.js (via react-chartjs-2) or Recharts
+
+Auth: JWT + bcrypt (store token in secure HttpOnly cookie)
+
+Deployment: Frontend → Netlify or Vercel; Backend → Railway / Render / Heroku (can use Railway Postgres in prod).
+
+Dev tooling: ESLint + Prettier (optional), and GitHub for code hosting.
+
+High-level requirements (must include)
+
+✅ Signup & Login (JWT-based; password hashed with bcrypt). Use HttpOnly cookie for token (or localStorage if simpler).
+
+✅ Role: user / admin (admin can view team-wide analytics).
+
+✅ Kanban Board: drag & drop (react-beautiful-dnd) with columns: Backlog, To Do, In Progress, Review, Done.
+
+✅ Task schema: title, description, priority, status, due_date, assignee, labels, comments, attachments (optional).
+
+✅ Analytics view: charts showing tasks completed over time, tasks by assignee, tasks by priority. Charts must be interactive & filterable (date range, project, user).
+
+✅ Realtime: when a user moves/updates a task, other connected users see changes immediately via Socket.io.
+
+✅ Mobile and desktop responsive layout; polished UI (Tailwind + small animations with Framer Motion optional).
+
+✅ README with setup, tech stack, deployment links, screenshots, assumptions, and bonus features list.
+
+✅ Public GitHub repo & email-ready README (so you can copy link to send to ProU).
+
+UX / UI design (best-looking, minimalist & professional)
+
+Color palette: soft slate background, accent teal/indigo for CTAs, muted neutrals for cards.
+
+Layout:
+
+Top nav: app logo (left), search, view toggle (Board / Analytics), user avatar (right) with dropdown (profile / logout).
+
+Left sidebar (collapsible): project list + quick filters (My tasks, Due soon).
+
+Main area: Kanban board with 5 columns horizontally scrollable on small screens. Cards with priority badges, assignee avatar, due date. Drag handle, subtle shadow.
+
+Right drawer/panel: opens on card click showing full task details, comments, activity timeline, edit button.
+
+Analytics route: top filters (date range, project), 3 charts in a grid: Line (tasks completed/week), Bar (tasks per user), Doughnut (by priority).
+
+Micro-interactions: hover elevation, smooth drag transitions, toast notifications for success/errors.
+
+Typography: Use a clean modern font (Inter / system font stack). Icons: lucide/react or Heroicons.
+
+Folder structure (monorepo)
+/ (root)
+├─ /client        # React app
+│   ├─ src/
+│   ├─ package.json
+│   └─ vite.config.js
+├─ /server        # Express + Prisma
+│   ├─ src/
+│   ├─ prisma/
+│   │   └─ schema.prisma
+│   ├─ package.json
+│   └─ .env
+├─ docker-compose.yml  # optional
+└─ README.md
+
+Database schema (Prisma / SQL) — minimal example
+
+Prisma schema snippet (SQLite / Postgres compatible):
+
+datasource db {
+  provider = env("DATABASE_PROVIDER") // "sqlite" or "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id          Int      @id @default(autoincrement())
+  name        String
+  email       String   @unique
+  password    String
+  role        String   @default("user") // "user" | "admin"
+  tasks       Task[]   @relation("Assignee")
+  createdAt   DateTime @default(now())
+}
+
+model Project {
+  id        Int     @id @default(autoincrement())
+  name      String
+  ownerId   Int
+  owner     User    @relation(fields: [ownerId], references: [id])
+  tasks     Task[]
+}
+
+model Task {
+  id          Int       @id @default(autoincrement())
+  title       String
+  description String?
+  status      String    @default("backlog") // backlog, todo, inprogress, review, done
+  priority    String    @default("medium")   // low, medium, high
+  dueDate     DateTime?
+  assigneeId  Int?
+  assignee    User?     @relation("Assignee", fields: [assigneeId], references: [id])
+  projectId   Int?
+  project     Project?  @relation(fields: [projectId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+
+Include a small seed script to create 3 users, 1 project, and ~8 example tasks across statuses.
+
+Backend API routes (essential)
+
+POST /api/auth/signup — body: {name,email,password} → create user, return cookie/JWT
+
+POST /api/auth/login — body: {email,password} → set auth cookie/JWT
+
+POST /api/auth/logout — clear cookie
+
+GET /api/users/me — return logged-in user
+
+GET /api/projects — list projects (filter by owner/member)
+
+GET /api/tasks — query params: project, assignee, status, date range → returns tasks
+
+POST /api/tasks — create task
+
+PUT /api/tasks/:id — update task (status change triggers Socket.io broadcast)
+
+DELETE /api/tasks/:id — delete task
+
+GET /api/analytics/task-completed — aggregated data for charts (server-side aggregation recommended)
+
+Protect necessary endpoints with auth middleware. Validate inputs and return proper HTTP status codes.
+
+Auth implementation notes
+
+Use bcrypt to hash passwords.
+
+Use jsonwebtoken to sign tokens with JWT_SECRET.
+
+For best security, send JWT in an HttpOnly cookie (server sets cookie). If cookie is not feasible in Replit test environment, document fallback to localStorage.
+
+Add middleware requireAuth to decode JWT and attach req.user.
+
+Realtime (Socket.io) plan — optional but recommended
+
+Server: attach socket.io to Express server; on task update emit taskUpdated with updated task.
+
+Client: connect socket after login; on taskUpdated update UI state.
+
+Use optimistic UI updates to show instant changes and fallback if server responds differently.
+
+Styling & UI libraries (commands)
+
+Tailwind CSS (preferred): fast, modern.
+
+react-beautiful-dnd for drag & drop.
+
+react-chartjs-2 + chart.js for charts.
+
+lucide-react / @heroicons/react for icons.
+
+framer-motion for subtle animations (optional).
+
+Replit-specific setup tips (copy this into Replit)
+
+Create a new Replit Node/Vite repo (monorepo).
+
+Set environment variables in Replit Secrets:
+
+DATABASE_PROVIDER=sqlite
+
+DATABASE_URL="file:./dev.db"
+
+JWT_SECRET=supersecurerandomstring
+
+PORT=5000
+
+Install deps:
+
+Server: npm i express prisma @prisma/client bcrypt jsonwebtoken cookie-parser cors socket.io
+
+Client: npm i react react-dom react-router-dom tailwindcss react-beautiful-dnd react-chartjs-2 chart.js axios lucide-react framer-motion
+
+Initialize Prisma:
+
+npx prisma init and copy provided schema; then npx prisma migrate dev --name init (for SQLite this creates dev.db)
+
+node ./server/prisma/seed.js to seed sample data (create a small seed script).
+
+Start both apps concurrently: use a script or concurrently package. Or run server on port 5000 and client on 5173; configure client proxy to http://localhost:5000 in dev.
+
+How to run (dev)
+
+From root: cd server && npm run dev (nodemon)
+
+In another terminal: cd client && npm run dev
+
+Open client URL (Vite default or Replit web view). Login with seeded user to see demo data.
+
+Build & deploy (easy)
+
+Frontend (Netlify / Vercel):
+
+Connect client GitHub repo. Set REACT_APP_API_URL=https://<your-backend-url>. Netlify auto builds from npm run build and serves static site.
+
+Backend (Railway / Render / Heroku):
+
+Push server to GitHub, connect to Railway or Render. Add environment vars (DATABASE_PROVIDER=postgresql, DATABASE_URL, JWT_SECRET). Deploy.
+
+If using PostgreSQL, update Prisma datasource and run prisma migrate (Railway offers GUI for initial migration) or use prisma db push for schema push.
+
+Add the deployed backend URL to the frontend environment and redeploy frontend.
+
+README checklist (you will submit this)
+
+Project name & short description
+
+Live demo links (Netlify/Vercel + Backend)
+
+Tech stack list and reasons for choices
+
+Setup steps (local + Replit + production) — include commands shown above
+
+Environment variables list (names & purpose)
+
+Screenshots + short GIF of Kanban + Analytics (how to make: use Loom or Replit screen-record)
+
+Bonus features implemented (Realtime, Docker, CI, Dark mode, role-based auth, seed script)
+
+Known limitations & next features
+
+Example seed data (so reviewers can instantly check)
+
+Users: Alice (admin), Bob, Charlie
+
+Project: “Yogasai — DevOps”
+
+Tasks: Create ~8 tasks across statuses and priorities; include a couple of overdue tasks to show filters.
+
+Test examples (curl)
+# Signup
+curl -X POST http://localhost:5000/api/auth/signup -H "Content-Type:application/json" -d '{"name":"Alice","email":"alice@demo.com","password":"Pass123!"}'
+
+# Login
+curl -X POST http://localhost:5000/api/auth/login -H "Content-Type:application/json" -d '{"email":"alice@demo.com","password":"Pass123!"}' -c cookies.txt
+
+# Get tasks (with cookie)
+curl -b cookies.txt http://localhost:5000/api/tasks
+
+Extra polish suggestions to impress ProU
+
+Add a simple CI: GitHub Actions that runs npm test or linter on PRs.
+
+Add Docker & docker-compose for local multi-service start (server + sqlite or postgres).
+
+Provide a short 60–90s demo video (guided tour: login → move task → analytics). Put link in README.
+
+Add small automated tests for critical API routes (login, create task, update task status).
+
+Final prompt text (short copy you can paste into Replit or an AI assistant)
+
+Build a production-ready Team Task Management & Analytics Dashboard with React + Tailwind frontend and Node.js + Express backend. Use Prisma + SQLite (dev) and allow PostgreSQL in production. Include JWT auth (HttpOnly cookie), role-based access (user/admin), a Kanban board with drag-and-drop, real-time updates with Socket.io, and an Analytics page with interactive charts (tasks over time, tasks by user, tasks by priority). Provide a clean UI with top nav, sidebar, board, and right-side details drawer. Add seed data, a complete README (setup, deployment to Netlify + Railway/Render), and sample demo screenshots or a short recording. Make the project public on GitHub and ensure it is easy to deploy (Netlify for frontend, Railway for backend). Provide Docker and CI as optional extras. Include endpoints and sample curl commands for quick testing.
