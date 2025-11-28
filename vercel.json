@@ -1,23 +1,20 @@
+```json
 {
     "version": 2,
     "builds": [
         {
-            {
-                "version": 2,
-                "builds": [
-                    {
-                        "src": "package.json",
-                        "use": "@vercel/node"
-                    }
-                ],
-                "rewrites": [
-                    {
-                        "source": "/api/(.*)",
-                        "destination": "/api/index.ts"
-                    },
-                    {
-                        "source": "/(.*)",
-                        "destination": "/client/index.html"
-                    }
-                ]
-            }
+            "version": 2,
+            "rewrites": [
+                {
+                    "source": "/api/(.*)",
+                    "destination": "/api/index.ts"
+                },
+                {
+                    "source": "/(.*)",
+                    "destination": "/index.html"
+                }
+            ]
+        }
+    ]
+}
+```
