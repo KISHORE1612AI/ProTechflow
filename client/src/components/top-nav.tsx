@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +43,12 @@ export function TopNav({ user, onSearch }: TopNavProps) {
     onSearch?.(searchQuery);
   };
 
+  const { data: pendingUsers = [] } = useQuery<User[]>({
+    queryKey: ["/api/admin/notifications"],
+    enabled: user?.isAdmin,
+    refetchInterval: 30000, // Poll every 30 seconds
+  });
+
   const viewItems = [
     {
       title: "Board",
@@ -58,10 +65,10 @@ export function TopNav({ user, onSearch }: TopNavProps) {
   ];
 
   return (
-    <header className="h-16 border-b border-border bg-background flex items-center justify-between px-4 gap-4">
+    <header className="h-16 glass flex items-center justify-between px-4 gap-4 sticky top-0 z-10">
       <div className="flex items-center gap-4">
         <SidebarTrigger data-testid="button-sidebar-toggle" />
-        
+
         <form onSubmit={handleSearch} className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -92,9 +99,41 @@ export function TopNav({ user, onSearch }: TopNavProps) {
           ))}
         </div>
 
-        <Button variant="ghost" size="icon" data-testid="button-notifications">
-          <Bell className="h-4 w-4" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="relative" data-testid="button-notifications">
+              <Bell className="h-4 w-4" />
+              {pendingUsers.length > 0 && (
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500" />
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-80">
+            <div className="px-4 py-2 font-medium border-b">Notifications</div>
+            {pendingUsers.length === 0 ? (
+              <div className="p-4 text-sm text-muted-foreground text-center">
+                No new notifications
+              </div>
+            ) : (
+              pendingUsers.map((u) => (
+                <DropdownMenuItem key={u.id} className="flex flex-col items-start p-3 gap-1 cursor-default">
+                  <div className="font-medium text-sm">New Account Request</div>
+                  <div className="text-xs text-muted-foreground">
+                    <span className="font-semibold">{u.firstName} {u.lastName}</span> ({u.username}) has requested an account.
+                  </div>
+                </DropdownMenuItem>
+              ))
+            )}
+            {pendingUsers.length > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild className="w-full cursor-pointer justify-center text-primary font-medium">
+                  <Link href="/admin">View All Requests</Link>
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <ThemeToggle />
 

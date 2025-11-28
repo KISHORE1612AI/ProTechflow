@@ -276,7 +276,7 @@ export function TaskForm({
                   </FormControl>
                   <SelectContent>
                     <SelectItem value="unassigned">Unassigned</SelectItem>
-                    {users.map((user) => (
+                    {availableUsers.map((user) => (
                       <SelectItem key={user.id} value={user.id}>
                         <div className="flex items-center gap-2">
                           <UserAvatar user={user} size="xs" />

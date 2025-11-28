@@ -35,6 +35,7 @@ import {
   Settings,
 } from "lucide-react";
 import type { User, Project } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
 
 type AppSidebarProps = {
   user?: User;
@@ -74,6 +75,15 @@ export function AppSidebar({
     },
   ];
 
+  if (user?.isAdmin) {
+    mainNavItems.push({
+      title: "Admin",
+      url: "/admin",
+      icon: Settings,
+      isActive: location === "/admin",
+    });
+  }
+
   const quickFilters = [
     {
       title: "My Tasks",
@@ -96,12 +106,19 @@ export function AppSidebar({
     },
   ];
 
-  const handleLogout = () => {
-    window.location.href = "/api/logout";
+  const handleLogout = async () => {
+    try {
+      await apiRequest("POST", "/api/logout");
+      window.location.href = "/auth";
+    } catch (error) {
+      console.error("Logout failed:", error);
+      // Fallback redirect even if API fails
+      window.location.href = "/auth";
+    }
   };
 
   return (
-    <Sidebar className="border-r border-sidebar-border">
+    <Sidebar className="border-r border-sidebar-border glass">
       <SidebarHeader className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">

@@ -9,8 +9,39 @@ ProU TaskBoard is a production-ready full-stack Team Task Management & Analytics
 - PostgreSQL database with Drizzle ORM
 - Modern UI with Tailwind CSS and Shadcn/UI components
 
-## Tech Stack
-- **Frontend**: React 18 + TypeScript + Vite
+## Setup & Installation
+
+1.  **Clone the repository**
+    ```bash
+    git clone <repository-url>
+    cd ProTechFlow
+    ```
+
+2.  **Install dependencies**
+    ```bash
+    npm install
+    ```
+
+3.  **Environment Setup**
+    Create a `.env` file with the following variables:
+    ```env
+    DATABASE_URL=postgresql://user:password@host:port/dbname
+    SESSION_SECRET=your_session_secret
+    # Optional: For Replit Auth
+    # REPL_ID=...
+    # ISSUER_URL=...
+    ```
+
+4.  **Run Database Migrations**
+    ```bash
+    npm run db:push
+    ```
+
+5.  **Start Development Server**
+    ```bash
+    npm run dev
+    ```
+
 - **Backend**: Node.js + Express
 - **Database**: PostgreSQL with Drizzle ORM
 - **Authentication**: Replit Auth (OpenID Connect)
@@ -71,16 +102,56 @@ ProU TaskBoard is a production-ready full-stack Team Task Management & Analytics
 - `npm run db:push` - Push schema changes to database
 - `npm run build` - Build for production
 
+### Local development without Replit Auth
+Replit Auth requires `REPL_ID`, `ISSUER_URL`, and other OIDC env vars. When running locally you can skip the real login by enabling the mock auth layer:
+
+1. Ensure `DATABASE_URL` and `SESSION_SECRET` are still present in `.env`.
+2. Add `MOCK_AUTH=true` to `.env` (this is enabled automatically when `REPL_ID` is missing in non-production environments).
+3. Run `npm run dev` – the API will automatically sign requests in as a development user (`dev-user`), so every authenticated route works without hitting the real OIDC provider.
+
+Mock auth never runs in production because `NODE_ENV=production` forces the real Replit Auth setup.
+
 ## Environment Variables
 Required environment variables are automatically provided by Replit:
 - `DATABASE_URL` - PostgreSQL connection string
 - `SESSION_SECRET` - Session encryption secret
 - `REPL_ID` - Replit app identifier
 
-## Recent Changes
-- Initial implementation of full-stack task management dashboard
-- Implemented Replit Auth for secure authentication
-- Added Kanban board with drag-and-drop functionality
-- Created analytics dashboard with Recharts
-- Added WebSocket support for real-time updates
-- Implemented project management and task comments
+## Deployment
+
+### Docker
+The application is containerized using Docker. To build and run:
+
+1.  **Build the image**
+    ```bash
+    docker build -t prou-taskboard .
+    ```
+
+2.  **Run the container**
+    ```bash
+    docker run -p 5000:5000 -e DATABASE_URL=... -e SESSION_SECRET=... prou-taskboard
+    ```
+
+### Render / Railway
+1.  Connect your GitHub repository.
+2.  The platform should automatically detect the `Dockerfile`.
+3.  Set the environment variables (`DATABASE_URL`, `SESSION_SECRET`).
+4.  Deploy.
+
+## Assumptions & Bonus Features
+
+### Assumptions
+- Users prefer a Kanban-style view for task management.
+- Real-time updates are critical for team collaboration.
+- The application is intended to be responsive across devices.
+
+### Bonus Features Implemented
+- **Authentication**: Implemented a dual-strategy authentication system supporting both Replit Auth (OIDC) and standard Username/Password (Local Strategy) for portability.
+- **Deployment**: Added `Dockerfile` for easy deployment to any container platform (Render, Railway, etc.).
+- **Real-time Collaboration**: WebSocket integration for instant updates on task changes and comments.
+- **Advanced UI**: Polished UI using Shadcn/UI and Tailwind CSS with dark mode support.
+- **Analytics**: Integrated charts for visualizing project progress.
+
+## Screenshots
+*(Please include screenshots of the Dashboard, Kanban Board, and Analytics view here)*
+

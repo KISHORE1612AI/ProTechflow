@@ -2,7 +2,7 @@ import type { Express } from "express";
 import type { Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
 import { insertTaskSchema, insertProjectSchema, insertCommentSchema } from "@shared/schema";
 import { z } from "zod";
 
@@ -13,10 +13,67 @@ export async function registerRoutes(
   // Auth middleware
   await setupAuth(app);
 
+  // Admin routes
+  app.get("/api/admin/users", isAdmin, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.post("/api/admin/approve/:id", isAdmin, async (req, res) => {
+    try {
+      const userId = req.params.id;
+      const user = await storage.approveUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      console.error("Error approving user:", error);
+      res.status(500).json({ message: "Failed to approve user" });
+    }
+  });
+
+  app.post("/api/admin/reject/:id", isAdmin, async (req, res) => {
+    try {
+      const userId = req.params.id;
+      await storage.rejectUser(userId);
+      res.sendStatus(200);
+    } catch (error) {
+      console.error("Error rejecting user:", error);
+      res.status(500).json({ message: "Failed to reject user" });
+    }
+  });
+
+  app.get("/api/admin/notifications", isAdmin, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      const pendingUsers = users.filter(u => !u.isApproved);
+      res.json(pendingUsers);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  app.get("/api/leaderboard", isAuthenticated, async (req, res) => {
+    try {
+      const leaderboard = await storage.getLeaderboard();
+      res.json(leaderboard);
+    } catch (error) {
+      console.error("Error fetching leaderboard:", error);
+      res.status(500).json({ message: "Failed to fetch leaderboard" });
+    }
+  });
+
   // Auth routes
   app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id || req.user.claims?.sub;
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
@@ -39,7 +96,7 @@ export async function registerRoutes(
   // Projects routes
   app.get("/api/projects", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id || req.user.claims?.sub;
       const projects = await storage.getProjects(userId);
       res.json(projects);
     } catch (error) {
@@ -64,7 +121,7 @@ export async function registerRoutes(
 
   app.post("/api/projects", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id || req.user.claims?.sub;
       const data = insertProjectSchema.parse({ ...req.body, ownerId: userId });
       const project = await storage.createProject(data);
       res.status(201).json(project);
@@ -139,7 +196,7 @@ export async function registerRoutes(
 
   app.post("/api/tasks", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id || req.user.claims?.sub;
       const taskData = {
         ...req.body,
         creatorId: userId,
@@ -149,10 +206,10 @@ export async function registerRoutes(
       };
       const data = insertTaskSchema.parse(taskData);
       const task = await storage.createTask(data);
-      
+
       // Broadcast to WebSocket clients
       broadcastMessage({ type: "task_created", payload: task });
-      
+
       res.status(201).json(task);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -167,22 +224,22 @@ export async function registerRoutes(
     try {
       const id = parseInt(req.params.id, 10);
       const updateData: any = { ...req.body };
-      
+
       if (updateData.assigneeId === "unassigned") {
         updateData.assigneeId = null;
       }
       if (updateData.dueDate) {
         updateData.dueDate = new Date(updateData.dueDate);
       }
-      
+
       const task = await storage.updateTask(id, updateData);
       if (!task) {
         return res.status(404).json({ message: "Task not found" });
       }
-      
+
       // Broadcast to WebSocket clients
       broadcastMessage({ type: "task_updated", payload: task });
-      
+
       res.json(task);
     } catch (error) {
       console.error("Error updating task:", error);
@@ -194,10 +251,10 @@ export async function registerRoutes(
     try {
       const id = parseInt(req.params.id, 10);
       await storage.deleteTask(id);
-      
+
       // Broadcast to WebSocket clients
       broadcastMessage({ type: "task_deleted", payload: { id } });
-      
+
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting task:", error);
@@ -222,7 +279,7 @@ export async function registerRoutes(
 
   app.post("/api/tasks/:taskId/comments", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id || req.user.claims?.sub;
       const taskId = parseInt(req.params.taskId, 10);
       const data = insertCommentSchema.parse({
         content: req.body.content,
@@ -230,10 +287,10 @@ export async function registerRoutes(
         authorId: userId,
       });
       const comment = await storage.createComment(data);
-      
+
       // Broadcast to WebSocket clients
       broadcastMessage({ type: "comment_created", payload: comment });
-      
+
       res.status(201).json(comment);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -257,10 +314,10 @@ export async function registerRoutes(
 
   // WebSocket server setup
   const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
-  
+
   wss.on("connection", (ws) => {
     console.log("WebSocket client connected");
-    
+
     ws.on("message", (message) => {
       try {
         const data = JSON.parse(message.toString());
@@ -269,16 +326,16 @@ export async function registerRoutes(
         console.error("Error parsing WebSocket message:", error);
       }
     });
-    
+
     ws.on("close", () => {
       console.log("WebSocket client disconnected");
     });
-    
+
     ws.on("error", (error) => {
       console.error("WebSocket error:", error);
     });
   });
-  
+
   // Store WebSocket server reference for broadcasting
   (global as any).wss = wss;
 }
@@ -287,7 +344,7 @@ export async function registerRoutes(
 function broadcastMessage(message: { type: string; payload?: any }) {
   const wss = (global as any).wss as WebSocketServer;
   if (!wss) return;
-  
+
   const messageStr = JSON.stringify(message);
   wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {

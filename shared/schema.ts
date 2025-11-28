@@ -31,6 +31,12 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   role: varchar("role", { length: 20 }).default("user").notNull(),
+  isAdmin: boolean("is_admin").default(false).notNull(),
+  isApproved: boolean("is_approved").default(false).notNull(),
+  xp: integer("xp").default(0).notNull(),
+  level: integer("level").default(1).notNull(),
+  username: varchar("username").unique().notNull(),
+  password: varchar("password").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

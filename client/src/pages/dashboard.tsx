@@ -26,12 +26,14 @@ import type {
 } from "@shared/schema";
 import type { TaskFormValues } from "@/components/task-form";
 import type { ProjectFormValues } from "@/components/project-form";
+import { Leaderboard } from "@/components/leaderboard";
 import { isPast, addDays } from "date-fns";
 
 export default function Dashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
-  
+
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [selectedTask, setSelectedTask] = useState<TaskWithRelations | null>(null);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
@@ -40,6 +42,25 @@ export default function Dashboard() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [defaultStatus, setDefaultStatus] = useState<TaskStatus>("backlog");
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+
+  // ... queries ...
+
+  const updateProjectMutation = useMutation({
+    mutationFn: async ({ id, ...data }: { id: number } & Partial<ProjectFormValues>) => {
+      return await apiRequest("PATCH", `/api/projects/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      setIsProjectDialogOpen(false);
+      setEditingProject(null);
+      toast({ title: "Project updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update project", variant: "destructive" });
+    },
+  });
+
+  // ... other mutations ...
 
   const { data: tasks = [], isLoading: tasksLoading } = useQuery<TaskWithRelations[]>({
     queryKey: ["/api/tasks", selectedProjectId],
@@ -269,47 +290,92 @@ export default function Dashboard() {
 
   return (
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
-      <div className="flex h-screen w-full">
+      <div className="flex h-screen w-full bg-gradient-to-br from-background to-accent/20">
         <AppSidebar
           user={user}
           projects={projects}
           selectedProjectId={selectedProjectId}
           onSelectProject={setSelectedProjectId}
-          onCreateProject={handleCreateProject}
+          onCreateProject={() => setIsProjectDialogOpen(true)}
           taskCounts={taskCounts}
         />
-        <SidebarInset className="flex flex-col flex-1 overflow-hidden">
-          <TopNav user={user} />
-          <main className="flex-1 overflow-auto p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h1 className="text-2xl font-semibold">Task Board</h1>
-                <p className="text-sm text-muted-foreground">
-                  {selectedProjectId
-                    ? projects.find((p) => p.id === selectedProjectId)?.name
-                    : "All Projects"}
-                </p>
-              </div>
-              <Button onClick={() => handleAddTask("backlog")} data-testid="button-create-task">
-                <Plus className="h-4 w-4 mr-2" />
-                New Task
-              </Button>
-            </div>
+        <SidebarInset className="flex flex-col flex-1 overflow-hidden bg-transparent">
+          <TopNav user={user} onSearch={setSearchQuery} />
+          <main className="flex-1 overflow-hidden p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full">
+              <div className="lg:col-span-3 h-full flex flex-col">
+                <div className="flex items-center justify-between mb-6 animate-fade-in">
+                  <div>
+                    <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
+                      {selectedProjectId
+                        ? projects.find(p => p.id === selectedProjectId)?.name
+                        : "All Tasks"}
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                      Manage and track your project progress
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    {selectedProjectId && (
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          const project = projects.find(p => p.id === selectedProjectId);
+                          if (project) {
+                            setEditingProject(project);
+                            setIsProjectDialogOpen(true);
+                          }
+                        }}
+                        className="glass hover:bg-white/10"
+                      >
+                        Settings
+                      </Button>
+                    )}
+                    <Button onClick={() => setIsTaskDialogOpen(true)} className="shadow-lg shadow-primary/20">
+                      <Plus className="h-4 w-4 mr-2" />
+                      New Task
+                    </Button>
+                  </div>
+                </div>
 
-            {filteredTasks.length === 0 && !tasksLoading ? (
-              <EmptyState
-                type="tasks"
-                onAction={() => handleAddTask("backlog")}
-              />
-            ) : (
-              <KanbanBoard
-                tasks={filteredTasks}
-                isLoading={tasksLoading}
-                onTaskMove={handleTaskMove}
-                onAddTask={handleAddTask}
-                onTaskClick={handleTaskClick}
-              />
-            )}
+                <div className="flex-1 overflow-x-auto pb-4 animate-fade-in" style={{ animationDelay: "0.1s" }}>
+                  {tasksLoading ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                    </div>
+                  ) : tasks.length === 0 ? (
+                    <EmptyState
+                      type="tasks"
+                      actionLabel="Create Task"
+                      onAction={() => setIsTaskDialogOpen(true)}
+                    />
+                  ) : (
+                    <KanbanBoard
+                      tasks={filteredTasks}
+                      onTaskClick={(task) => {
+                        setSelectedTask(task);
+                        setIsTaskDetailOpen(true);
+                      }}
+                      onTaskMove={(task, status) => {
+                        updateTaskMutation.mutate({
+                          id: task.id,
+                          status,
+                        });
+                      }}
+                      onAddTask={(status) => {
+                        setDefaultStatus(status);
+                        setIsTaskDialogOpen(true);
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div className="hidden lg:block space-y-6 animate-fade-in" style={{ animationDelay: "0.2s" }}>
+                <Leaderboard />
+                {/* Add more widgets here later */}
+              </div>
+            </div>
           </main>
         </SidebarInset>
       </div>
@@ -317,45 +383,56 @@ export default function Dashboard() {
       <TaskDialog
         open={isTaskDialogOpen}
         onOpenChange={setIsTaskDialogOpen}
-        task={selectedTask}
         defaultStatus={defaultStatus}
         users={users}
         projects={projects}
-        onSubmit={handleTaskSubmit}
-        isSubmitting={createTaskMutation.isPending || updateTaskMutation.isPending}
-      />
-
-      <TaskDetailDrawer
-        open={isTaskDetailOpen}
-        onOpenChange={setIsTaskDetailOpen}
-        task={selectedTask}
-        comments={comments}
-        users={users}
-        currentUser={user}
-        onEdit={handleEditTask}
-        onDelete={handleDeleteTask}
-        onStatusChange={handleStatusChange}
-        onPriorityChange={handlePriorityChange}
-        onAssigneeChange={handleAssigneeChange}
-        onAddComment={handleAddComment}
-        isSubmittingComment={createCommentMutation.isPending}
+        onSubmit={createTaskMutation.mutate}
+        isSubmitting={createTaskMutation.isPending}
+        currentUser={user || undefined}
       />
 
       <ProjectDialog
         open={isProjectDialogOpen}
-        onOpenChange={setIsProjectDialogOpen}
+        onOpenChange={(open) => {
+          setIsProjectDialogOpen(open);
+          if (!open) setEditingProject(null);
+        }}
+        onSubmit={(data) => {
+          if (editingProject) {
+            updateProjectMutation.mutate({ id: editingProject.id, ...data });
+          } else {
+            createProjectMutation.mutate(data);
+          }
+        }}
         project={editingProject}
-        onSubmit={handleProjectSubmit}
-        isSubmitting={createProjectMutation.isPending}
+      />
+
+      <TaskDetailDrawer
+        task={selectedTask}
+        open={isTaskDetailOpen}
+        onOpenChange={setIsTaskDetailOpen}
+        onUpdate={(id: number, data: Partial<TaskFormValues>) => updateTaskMutation.mutate({ id, ...data })}
+        onDelete={(id: number) => {
+          setIsTaskDetailOpen(false);
+          setIsDeleteDialogOpen(true);
+        }}
+        users={users}
+        projects={projects}
+        currentUser={user || undefined}
+        comments={comments}
+        onAddComment={(content) => createCommentMutation.mutate({ content, taskId: selectedTask!.id })}
       />
 
       <DeleteConfirmationDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
+        onConfirm={() => {
+          if (selectedTask) {
+            deleteTaskMutation.mutate(selectedTask.id);
+          }
+        }}
         title="Delete Task"
-        description={`Are you sure you want to delete "${selectedTask?.title}"? This action cannot be undone.`}
-        onConfirm={handleConfirmDelete}
-        isDeleting={deleteTaskMutation.isPending}
+        description="Are you sure you want to delete this task? This action cannot be undone."
       />
     </SidebarProvider>
   );

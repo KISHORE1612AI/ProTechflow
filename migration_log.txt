@@ -1,0 +1,5 @@
+2025-11-28T12:21:55.621Z - Starting migration...
+2025-11-28T12:21:55.651Z - Loaded dotenv.
+2025-11-28T12:21:58.747Z - Added xp column.
+2025-11-28T12:21:59.011Z - Added level column.
+2025-11-28T12:21:59.012Z - Migration successful.

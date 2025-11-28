@@ -23,6 +23,12 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   getAllUsers(): Promise<User[]>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  createUser(user: UpsertUser): Promise<User>;
+  approveUser(id: string): Promise<User | undefined>;
+  rejectUser(id: string): Promise<void>;
+  getLeaderboard(): Promise<User[]>;
 
   // Project operations
   getProjects(userId: string): Promise<Project[]>;
@@ -69,6 +75,33 @@ export class DatabaseStorage implements IStorage {
 
   async getAllUsers(): Promise<User[]> {
     return await db.select().from(users).orderBy(asc(users.firstName));
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
+  }
+
+  async createUser(user: UpsertUser): Promise<User> {
+    const [newUser] = await db.insert(users).values({
+      ...user,
+      isApproved: false, // Default to false for new registrations
+      isAdmin: false,
+    }).returning();
+    return newUser;
+  }
+
+  async approveUser(id: string): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ isApproved: true })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  async rejectUser(id: string): Promise<void> {
+    await db.delete(users).where(eq(users.id, id));
   }
 
   // Project operations
@@ -214,12 +247,37 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTask(id: number, task: Partial<InsertTask>): Promise<Task | undefined> {
+    const [currentTask] = await db.select().from(tasks).where(eq(tasks.id, id));
+
+    if (currentTask && (task as any).status === "done" && currentTask.status !== "done") {
+      // Award XP to assignee
+      if (currentTask.assigneeId) {
+        const [user] = await db.select().from(users).where(eq(users.id, currentTask.assigneeId));
+        if (user) {
+          const newXp = (user.xp || 0) + 10;
+          const newLevel = Math.floor(newXp / 100) + 1;
+
+          await db.update(users)
+            .set({ xp: newXp, level: newLevel })
+            .where(eq(users.id, user.id));
+        }
+      }
+    }
+
     const [updated] = await db
       .update(tasks)
       .set({ ...task, updatedAt: new Date() })
       .where(eq(tasks.id, id))
       .returning();
     return updated;
+  }
+
+  async getLeaderboard(): Promise<User[]> {
+    return await db
+      .select()
+      .from(users)
+      .orderBy(desc(users.xp))
+      .limit(10);
   }
 
   async deleteTask(id: number): Promise<void> {

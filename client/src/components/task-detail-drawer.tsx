@@ -193,21 +193,33 @@ export function TaskDetailDrawer({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="unassigned">Unassigned</SelectItem>
-                  {users.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      <div className="flex items-center gap-2">
-                        <UserAvatar user={user} size="xs" />
-                        <span>
-                          {user.firstName || user.lastName
-                            ? `${user.firstName || ""} ${user.lastName || ""}`.trim()
-                            : user.email}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {users
+                    .filter(u => currentUser?.isAdmin || !u.isAdmin)
+                    .map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        <div className="flex items-center gap-2">
+                          <UserAvatar user={user} size="xs" />
+                          <span>
+                            {user.firstName || user.lastName
+                              ? `${user.firstName || ""} ${user.lastName || ""}`.trim()
+                              : user.email}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
+
+            {(currentUser?.id === task.assigneeId || currentUser?.isAdmin) && task.status !== "done" && (
+              <Button
+                className="w-full"
+                onClick={() => onStatusChange("done")}
+                variant="default"
+              >
+                Mark as Complete
+              </Button>
+            )}
 
             {task.dueDate && (
               <div className="flex items-center gap-2 text-sm">

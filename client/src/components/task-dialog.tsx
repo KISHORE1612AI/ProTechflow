@@ -16,6 +16,7 @@ type TaskDialogProps = {
   projects?: Project[];
   onSubmit: (data: TaskFormValues) => void;
   isSubmitting?: boolean;
+  currentUser?: User;
 };
 
 export function TaskDialog({
@@ -27,23 +28,24 @@ export function TaskDialog({
   projects = [],
   onSubmit,
   isSubmitting,
+  currentUser,
 }: TaskDialogProps) {
   const isEditing = !!task;
 
   const defaultValues: Partial<TaskFormValues> = task
     ? {
-        title: task.title,
-        description: task.description || "",
-        status: task.status as TaskStatus,
-        priority: task.priority as any,
-        dueDate: task.dueDate ? new Date(task.dueDate) : null,
-        assigneeId: task.assigneeId,
-        projectId: task.projectId,
-        labels: task.labels || [],
-      }
+      title: task.title,
+      description: task.description || "",
+      status: task.status as TaskStatus,
+      priority: task.priority as any,
+      dueDate: task.dueDate ? new Date(task.dueDate) : null,
+      assigneeId: task.assigneeId,
+      projectId: task.projectId,
+      labels: task.labels || [],
+    }
     : {
-        status: defaultStatus,
-      };
+      status: defaultStatus,
+    };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -61,6 +63,7 @@ export function TaskDialog({
           onCancel={() => onOpenChange(false)}
           isSubmitting={isSubmitting}
           submitLabel={isEditing ? "Save Changes" : "Create Task"}
+          currentUser={currentUser}
         />
       </DialogContent>
     </Dialog>

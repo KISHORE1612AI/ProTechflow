@@ -46,7 +46,7 @@ export function EmptyState({
   onAction,
   className,
 }: EmptyStateProps) {
-  const config = emptyStateConfig[type];
+  const config = emptyStateConfig[type] || emptyStateConfig.tasks;
   const Icon = config.icon;
 
   return (
